@@ -1,15 +1,32 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { motion } from 'framer-motion';
+import { addTask, getTasks, toggleComplete } from '../../firebase/taskController';
 
 const TaskList = ({ showSettings, setShowSettings }) => {
 
     const [newTask, setNewTask] = useState("");
     const [taskList, setTaskList] = useState([]);
 
+    useEffect(() => {
+        getTasks()
+            .then(tasks => setTaskList([...tasks]))
+            .catch((e) => console.error(e));
+    }, [])
+
+
     const addNewTask = () => {
         if (newTask === "") return;
-        setTaskList([...taskList, { task: newTask, completed: false }]);
-        setNewTask("");
+        // Añadir nueva tarea a Firestore
+        const task = { task: newTask, completed: false }
+        addTask(task)
+            .then(() => {
+                // Cuando se haya añadido -> Mostrar todas en el estado tasklist
+                return setTaskList([...taskList, task]);
+            })
+            .catch((e) => console.error(e))
+            .finally(() => setNewTask(""))
+        // setTaskList([...taskList, { task: newTask, completed: false }]);
+        // setNewTask("");
         return true;
     }
 
@@ -23,9 +40,18 @@ const TaskList = ({ showSettings, setShowSettings }) => {
     }
 
     const toggleCompleteItem = (index) => {
-        let newTaskList = taskList;
-        newTaskList[index].completed = !newTaskList[index].completed;
-        setTaskList([...newTaskList]);
+        // let newTaskList = taskList;
+        let task = taskList.find(t => t.id === index);
+        // Actualizar la base de datos
+        toggleComplete(task)
+            .then(async () => {
+                const newTaskList = await getTasks();
+                return setTaskList([...newTaskList]);
+            })
+            .catch((e) => console.error(e))
+        // newTaskList[index].completed = !newTaskList[index].completed;
+        // setTaskList([...newTaskList]);
+
     }
 
     const insertNewItemOnEnterKey = (e) => e.key === "Enter" && addNewTask();
@@ -62,10 +88,10 @@ const TaskList = ({ showSettings, setShowSettings }) => {
                             initial={{ x: "100vw" }}
                             animate={{ x: 0 }}
                             key={index}>
-                            <label>
+                            <label className='cursor-pointer'>
                                 <input
                                     type='checkbox'
-                                    onClick={() => toggleCompleteItem(index)}
+                                    onClick={() => toggleCompleteItem(item.id)}
                                     checked={item.completed}
                                     onChange={() => { }}
                                 />
